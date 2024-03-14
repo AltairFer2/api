@@ -68,7 +68,7 @@ router.patch('/posts', async (req, res) => {
 });
 
 router.get('/comments', async (req, res) => {
-    const orden = await db.collection('orden').find().toArray();
+    const orden = await db.collection('comments').find().toArray();
     res.send(orden);
 });
 
@@ -84,10 +84,10 @@ router.get('/comments/oid/:oid', async (req, res) => {
 
 router.post('/comments', async function (req, res) {
     const newComment = {
-        "no_comment": req.body.no_comment,
-        "commenter": req.body.commenter,
+        "no_comment": getRandomArbitrary(1500, 10000),
+        "commenter": "Anonimo",
         "comment": req.body.comment,
-        "created_at": req.body.created_at,
+        "created_at": "2024-02-29",
         "no_post": req.body.no_post
     };
     const result = await db.collection("comments").insertOne(newComment);
@@ -96,32 +96,56 @@ router.post('/comments', async function (req, res) {
 
 router.delete('/comments/:no_comment', async (req, res) => {
     try {
-        const com = db.collection("comment")
-        const result = await com.findOneAndDelete({ "no_comment": parseInt(req.params.no_comment) });
-        if (result)
-            res.send("Comment deleted...")
-        else
-            res.send("Comment not found...")
+        const comm = db.collection("comments");
+        const result = await comm.findOneAndDelete({ "no_comment": parseInt(req.params.no_comment) });
+        if (result.value) { // Asegurándose de que un documento fue eliminado
+            res.send("Comment deleted...");
+        } else {
+            res.send("Comment not found...");
+        }
     } catch (error) {
-        console.log(error)
+        console.log(error);
+        res.status(500).send("An error occurred while deleting the comment");
     }
-
 });
 
-router.patch('/comments', async (req, res) => {
+
+
+
+router.patch('/comments/:no_comment', async (req, res) => {
     try {
-        const com = db.collection("comments")
-        const result = await com.findOneAndUpdate({ "no_comment": req.body.no_comment }, { $set: req.body });
-        if (result) {
-            res.send(result)
+        const no_comment = parseInt(req.params.no_comment);
+        if (isNaN(no_comment)) {
+            return res.status(400).send("El parámetro no_comment debe ser un número.");
+        }
+
+        const updateData = { ...req.body };
+        const com = db.collection("comments");
+
+        // Asegúrate de no intentar actualizar el campo _id, si es parte de updateData
+        delete updateData._id;
+
+        const result = await com.findOneAndUpdate(
+            { "no_comment": no_comment },
+            { $set: updateData },
+            { returnDocument: 'after' } // Asegúrate que tu versión de MongoDB soporta 'returnDocument'
+        );
+
+        if (result.value) {
+            res.status(404).send("Comment not found with no_comment: " + no_comment); // Si no se encuentra, envía este mensaje
         } else {
-            res.send("Comment not found..." + req.body.no_comment)
+            res.send(result.value); // Si se encuentra y actualiza, devuelve el documento actualizado
+
         }
     } catch (e) {
-        console.log(e)
+        console.log(e);
+        res.status(500).send("An error occurred while updating the comment");
     }
-
 });
+
+
+
+
 
 
 module.exports = router
